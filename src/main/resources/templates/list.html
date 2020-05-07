@@ -1,0 +1,397 @@
+<!DOCTYPE html >
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>crud demo</title>
+</head>
+
+
+<script src="https://cdn.bootcss.com/jquery/3.5.0/jquery.js"></script>
+
+<!-- import Vue.js -->
+<script src="https://cdn.bootcss.com/vue/2.5.16/vue.min.js"></script>
+
+<!-- import CSS -->
+<link rel="stylesheet" href="https://unpkg.com/element-ui/lib/theme-chalk/index.css">
+
+<!-- import JavaScript -->
+<script src="https://unpkg.com/element-ui/lib/index.js"></script>
+
+
+
+
+<body>
+    <div id="app">
+        <template>
+        <div style="margin-bottom: 20px">
+
+            <div class="block">
+                <span class="demonstration">申请开始时间</span>
+                <el-date-picker
+                        v-model="searchData.searchStartDate"
+                        type="date"
+                        placeholder="选择日期">
+                </el-date-picker>
+            </div>
+            <div class="block">
+                <span class="demonstration">申请结束时间</span>
+                <el-date-picker
+                        v-model="searchData.searchEndDate"
+                        type="date"
+                        placeholder="选择日期">
+                </el-date-picker>
+            </div>
+            <el-button type="primary" @click="getDataList">搜索</el-button>
+
+
+        </div>
+
+        <hr style="height: 2px;margin-bottom: 10px">
+
+        <el-button @click="add">添加</el-button>
+        <!-- data table-->
+        <el-table  :data="tableData"
+                  border stripe>
+            <el-table-column
+                    prop="activityId"
+                    label="id"
+                    width="180">
+            </el-table-column>
+            <el-table-column
+                    prop="activityName"
+                    label="名称"
+                    width="180">
+            </el-table-column>
+            <el-table-column
+                    prop="startTime"
+                    label="开始日期">
+            </el-table-column>
+            <el-table-column
+                    fixed="right"
+                    label="操作"
+                    width="100">
+                <template slot-scope="scope">
+                    <el-button @click="handleClick(scope.row)" type="text" size="small">查看</el-button>
+                    <el-button @click="edit(scope.row)"  type="text" size="small">编辑</el-button>
+                </template>
+            </el-table-column>
+        </el-table>
+
+        <!-- pager-->
+         <el-pagination  v-if="totalCount>0"  :current-page.sync="page" background layout="prev, pager, next" :total="totalCount"  :page-size="size" @current-change="changePagesFun">
+            </el-pagination>
+
+
+
+        <el-dialog :visible.sync="dialogVisible">
+            <el-form ref="addFormData" :rules="rules" :model="addFormData" label-width="120px" name="addform">
+
+                <el-form-item label="activityid"  prop="activityId">
+                    <el-input v-model="addFormData.activityId" placeholder="please input activity id " style="width: 200px;"></el-input>
+                </el-form-item>
+
+                <el-form-item label="activityName">
+                    <el-input v-model="addFormData.activityName" placeholder="please input activityName " style="width: 200px;"></el-input>
+                </el-form-item>
+
+                <el-form-item label="starttime">
+                    <el-date-picker
+                    v-model="addFormData.startTime"
+                    type="date"
+                    format="yyyy-MM-dd"
+                    placeholder="选择日期" value-format="yyyy-MM-dd HH:mm:ss"  > </el-date-picker>
+
+               </el-form-item>
+
+                <el-form-item label="endtime">
+                    <el-date-picker
+                            v-model="addFormData.endTime"
+                            type="date"
+                            format="yyyy-MM-dd"
+                            placeholder="选择日期" value-format="yyyy-MM-dd HH:mm:ss"  ></el-date-picker>
+                </el-form-item>
+
+                <el-form-item label="activityTimeHour">
+                    <el-date-picker
+                            v-model="addFormData.activityTimeHour"
+                            type="datetime"
+                            placeholder="选择日期时间">
+                    </el-date-picker>
+
+                </el-form-item>
+
+                <el-form-item label="rainSeconds">
+                    <el-input-number v-model="addFormData.rainSeconds" precision="0"></el-input-number>
+                </el-form-item>
+
+                <el-form-item label="gender">
+                <el-select v-model="addFormData.selectedGender" placeholder="请选择">
+                    <el-option
+                            v-for="item in genderList"
+                            :key="item.genderValue"
+                            :label="item.genderText"
+                            :value="item.genderValue">
+                    </el-option>
+                </el-select>
+                </el-form-item>
+                <el-form-item label="uploader">
+                    <el-upload
+                            class="upload-demo"
+                            action="/upload/uploadImage"
+                            :on-success="handle_success"
+                            :on-preview="handlePreview"
+                            :on-remove="handleRemove"
+                            :before-remove="beforeRemove"
+                            :file-list="fileList">
+                        <el-button size="small" type="primary">点击上传</el-button>
+                        <div slot="tip" class="el-upload__tip">只能上传jpg/png文件，且不超过500kb</div>
+                    </el-upload>
+
+                </el-form-item>
+
+                <el-form-item label="gendercheckbox">
+                <el-checkbox-group v-model="checkedGender" >
+                    <el-checkbox v-for="item in genderList" :label="item.genderValue" :key="item.genderValue">{{item.genderText}}</el-checkbox>
+                </el-checkbox-group>
+                </el-form-item>
+
+                <el-form-item>
+                    <el-button type="primary" @click="ok">保存</el-button>
+                    <el-button @click="cancel">取消</el-button>
+                </el-form-item>
+            </el-form>
+        </el-dialog>
+
+        </template>
+    </div>
+</body>
+
+
+
+    <script type="text/javascript">
+        /*<![CDATA[*/
+        let app = new Vue({
+            el: '#app',
+            data(){
+                return {
+                    fileList:[],
+                    searchData:{
+                        searchStartDate:'',
+                        searchEndDate:'',
+                    },
+                    genderList:[],
+                    page: 0,
+                    size: 2,
+                    loading: true,
+                    totalElements: 0,
+                    checkedGender:[],
+                    addFormData: {
+                        selectedGender:0,
+                        id : 0,
+                        activityId: '',
+                        activityName: '',
+                        startTime: '',
+                        endTime: '',
+                        rainSeconds: ''
+                    },
+                    dialogVisible: false,
+
+                    tableColumns: [],
+                    tableData: [],
+                    totalCount:0,
+
+                    rules: {
+                        activityId: [
+                            { required: true, message: '请输入活动id',trigger: 'blur' }
+                        ]
+
+                    }
+                }
+            },
+            created() {
+                this.getGenderList()
+            },
+            methods: {
+                handle_success(response, file, fileList) {
+
+                    this.fileList.push({
+                        name: file.name,
+                        url: file.response
+                    });
+                },
+                handleRemove(file, fileList) {
+                    alert(fileList)
+                    console.log(file, fileList);
+                },
+                handlePreview(file) {
+                    console.log(file);
+                },
+                handleExceed(files, fileList) {
+                    this.$message.warning(`当前限制选择 3 个文件，本次选择了 ${files.length} 个文件，共选择了 ${files.length + fileList.length} 个文件`);
+                },
+                beforeRemove(file, fileList) {
+                    alert(fileList)
+                    return this.$confirm(`确定移除 ${ file.name }？`);
+                },
+                getGenderList(){
+                    var self = this;
+                    $.post("/api/rain/genderlist", null, function (data) {
+                        self.genderList=data;
+                    });
+                },
+
+                edit(row) {
+                    console.log(row);
+
+                    var self = this;
+
+                    var request = {
+                        id:row.id
+                    };
+
+                    $.post("/api/rain/edit", request, function (data) {
+
+                        if (data ) {
+                            //   let data = data;
+
+                            self.addFormData = {
+                                id :data.id,
+                                activityId : data.activityId,
+                                activityName : data.activityName,
+                                startTime :data.startTime,
+                                endTime :  data.endTime,
+                             //   activityTimeHour: data.activityTimeHour,
+                                rainSeconds : data.rainSeconds,
+
+                            },
+                            self.dialogVisible = 'true';
+
+                        } else {
+                            self.$message.error(data.msg);
+                        }
+                    });
+
+                },
+                getTableColumns() {
+                },
+                cancel(){
+                    var self = this;
+                    self.dialogVisible=false;
+                },
+                ok() {
+                    var self = this;
+
+                    self.$refs['addFormData'].validate((valid) => {
+                        if (valid) {
+
+                           // self.addFormData.fileList = self.fileList;
+
+                            var arr = new Array();
+                            for (i = 0; i < self.fileList.length; i++) {
+                                arr.push( self.fileList[i].url );
+                            }
+
+                            self.addFormData.fileUploadUrls= arr;
+                            self.addFormData.checkedGender = self.checkedGender;
+                            $.ajax({
+                                traditional:true,
+                                type: "POST",
+                                url: "/api/rain/save",
+                                data: self.addFormData,
+                                dataType: "json",
+                                success : function (data) {
+                                    if (data && data.status == true) {
+                                        self.$message.success('成功');
+                                        self.dialogVisible=false;
+                                        self.getDataList();
+                                    } else {
+                                        self.$message.error(data.errorMsg);
+                                    }
+                                }
+                            });
+
+
+
+//                            $.post("/api/rain/save", self.addFormData, function (data) {
+//                                if (data && data.status == true) {
+//                                    self.$message.success('成功');
+//                                    self.dialogVisible=false;
+//                                    self.getDataList();
+//                                } else {
+//                                    self.$message.error(data.errorMsg);
+//                                }
+//                            },"json");
+
+                        } else {
+                            console.log('error submit!!');
+                            return false;
+                        }
+                    });
+                },
+                changePagesFun(){
+                    var self = this;
+                    self.searchData.pageIndex= self.page;
+                    self.searchData.pageSize= self.size;
+
+                    $.post("/api/rain/searchList", self.searchData, function (data) {
+                        self.tableData = data.dataList;
+                        self.totalCount = data.totalCount;
+                    });
+                },
+                changePageSizeFun(){
+
+                },
+                getDataList(){
+                    var self = this;
+                    self.searchData.pageIndex= self.page;
+                    self.searchData.pageSize= self.size;
+
+                    $.post("/api/rain/searchList", self.searchData, function (data) {
+                         self.tableData = data.dataList;
+                         self.totalCount = data.totalCount;
+                    });
+                },
+                dealTimeStartDataChange(){
+
+                },
+                dealTimeEndDataChange(){
+
+                },
+                add(){
+                    var self = this;
+                    $.post("/api/rain/add", null, function (data) {
+
+                        if (data && data.status) {
+                         //   let data = data;
+
+                            self.addFormData = {
+                                activityId : data.activityId,
+                                activityName : data.activityName,
+                                startTime : data.startTime,
+                                endTime : data.endTime,
+                                activityTimeHour: data.activityTimeHour,
+                                rainSeconds : data.rainSeconds,
+
+                            },
+                            self.dialogVisible = 'true';
+
+                        } else {
+                            self.$message.error(data.msg);
+                        }
+                    });
+                },
+                getTableColumns() {
+
+                },
+
+                timeFormatter(value) {
+                    if (value == null || value == "") {
+                        return "";
+                    }
+                    var date = new Date(value);
+                    return format = date.format("yyyy-MM-dd hh:mm:ss");
+                },
+            },
+        });
+    </script>
+</html>
